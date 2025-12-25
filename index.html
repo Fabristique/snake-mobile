@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Snake Nokia — Mobile (SFX)</title>
+  <title>Snake Nokia — Mobile (Senior UI + Mireille)</title>
   <style>
     :root{ --bg:#0b0f14; --panel:#0f1620; --text:#e8eef6; --muted:#9fb0c3; }
     html,body{height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text);}
@@ -18,7 +18,7 @@
       gap:10px;
       max-width:720px;
       margin:0 auto;
-      position:relative; /* overlays stay in fullscreen */
+      position:relative;
     }
 
     .top{
@@ -31,8 +31,9 @@
     .hud{display:flex; gap:10px; align-items:center; font-variant-numeric:tabular-nums; flex-wrap:wrap; justify-content:flex-end;}
     .pill{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); padding:6px 10px; border-radius:999px; white-space:nowrap;}
 
+    /* Game area: slightly shorter to leave room for big controls */
     .stage{
-      flex:1;
+      flex:0 0 auto;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -43,7 +44,8 @@
         linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
       overflow:hidden;
       position:relative;
-      min-height:260px;
+      min-height: 220px;
+      height: clamp(280px, 42vh, 430px); /* tuned for portrait, bigger control area */
     }
     canvas{
       width:100%;
@@ -52,75 +54,90 @@
       image-rendering: pixelated;
     }
 
-    .controls{
+    /* Bottom layout: centered big dpad + small icon buttons around */
+    .bottom{
       display:flex;
+      flex-direction:column;
       gap:10px;
-      align-items:stretch;
-      justify-content:space-between;
+      align-items:center;
+      justify-content:flex-end;
     }
 
-    .dpad{
-      width: 190px;
-      max-width: 48vw;
+    .actionsRow{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .iconBtn{
+      width:72px;
+      height:72px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:900;
+      font-size:14px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      user-select:none;
+    }
+    .iconBtn:active{ transform: scale(.99); }
+    .icon{
+      font-size:22px;
+      line-height:1;
+    }
+    .iconLabel{
+      font-size:12px;
+      color:rgba(232,238,246,.92);
+      line-height:1;
+    }
+    .iconBtn.primary{
+      background:rgba(80,170,255,.22);
+      border-color:rgba(80,170,255,.35);
+    }
+
+    .dpadBig{
+      width: 270px;
+      max-width: 88vw;
       aspect-ratio: 1 / 1;
       display:grid;
       grid-template-columns: 1fr 1fr 1fr;
       grid-template-rows: 1fr 1fr 1fr;
-      gap:8px;
-      padding:10px;
-      border-radius:18px;
+      gap:14px;
+      padding:14px;
+      border-radius:22px;
       background:rgba(255,255,255,.04);
       border:1px solid rgba(255,255,255,.08);
     }
-    .dpad button{
-      border-radius:14px;
+    .dpadBig button{
+      border-radius:18px;
       border:1px solid rgba(255,255,255,.14);
       background:rgba(255,255,255,.06);
       color:var(--text);
       font-weight:900;
-      font-size:18px;
+      font-size:28px; /* bigger arrows */
       user-select:none;
+      min-height:70px;
     }
-    .dpad button:active{ transform: scale(.98); background:rgba(255,255,255,.10); }
-
-    .sideBtns{
-      flex:1;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      justify-content:space-between;
-      align-items:stretch;
-    }
-    .sideBtns .row{ display:flex; gap:10px; }
-    .btn{
-      flex:1;
-      padding:14px 12px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      font-weight:900;
-      font-size:16px;
-      user-select:none;
-    }
-    .btn.primary{
-      background:rgba(80,170,255,.22);
-      border-color:rgba(80,170,255,.35);
-    }
-    .btn:active{ transform: scale(.99); }
+    .dpadBig button:active{ transform: scale(.98); background:rgba(255,255,255,.10); }
 
     .hint{
+      width:100%;
       color:var(--muted);
       font-size:12px;
       line-height:1.3;
       padding:0 2px;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+      text-align:center;
     }
 
-    /* overlays inside appRoot */
+    /* overlays */
     .overlay{
       position:absolute; inset:0;
       display:none;
@@ -132,7 +149,7 @@
       z-index:50;
     }
     .modal{
-      width:min(520px, 95vw);
+      width:min(560px, 95vw);
       background:var(--panel);
       border:1px solid rgba(255,255,255,.12);
       border-radius:18px;
@@ -142,14 +159,36 @@
     }
     .modal h2{ margin:8px 0 8px; font-size:22px;}
     .modal p{ margin:6px 0; color:var(--muted);}
-    .bigScore{ font-size:44px; font-weight:900; margin:12px 0 4px; font-variant-numeric:tabular-nums;}
-    .btnRow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px;}
-    .btnRow .btn{ flex:0 1 auto; min-width:160px; }
+    .bigScore{ font-size:46px; font-weight:900; margin:10px 0 2px; font-variant-numeric:tabular-nums;}
+    .encourage{
+      margin-top:8px;
+      font-size:16px;
+      color:rgba(232,238,246,.92);
+      line-height:1.35;
+    }
+    .btnRow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px;}
+    .btnRow .bigBtn{
+      min-width:200px;
+      padding:14px 16px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:900;
+      font-size:16px;
+      user-select:none;
+    }
+    .btnRow .bigBtn.primary{
+      background:rgba(80,170,255,.22);
+      border-color:rgba(80,170,255,.35);
+    }
+    .btnRow .bigBtn:active{ transform: scale(.99); }
 
     @media (orientation: landscape){
-      .modal p.portraitWarn{ display:block; }
+      .stage{ height: clamp(220px, 60vh, 380px); }
+      .dpadBig{ width:220px; }
+      .iconBtn{ width:64px; height:64px; }
     }
-    .portraitWarn{ display:none; }
   </style>
 </head>
 <body>
@@ -166,8 +205,25 @@
       <canvas id="game" width="480" height="480" aria-label="Jeu Snake"></canvas>
     </div>
 
-    <div class="controls">
-      <div class="dpad" aria-label="Contrôles directionnels">
+    <div class="bottom">
+      <!-- small icon actions around the controls -->
+      <div class="actionsRow" aria-label="Actions">
+        <button class="iconBtn" id="pauseBtn" aria-label="Pause">
+          <div class="icon">⏸</div><div class="iconLabel">Pause</div>
+        </button>
+        <button class="iconBtn" id="fsBtnSmall" aria-label="Plein écran">
+          <div class="icon">⛶</div><div class="iconLabel">Plein écran</div>
+        </button>
+        <button class="iconBtn" id="startSmall" aria-label="Démarrer">
+          <div class="icon">▶</div><div class="iconLabel">Démarrer</div>
+        </button>
+        <button class="iconBtn primary" id="restartSmall" aria-label="Recommencer">
+          <div class="icon">↻</div><div class="iconLabel">Rejouer</div>
+        </button>
+      </div>
+
+      <!-- BIG centered dpad -->
+      <div class="dpadBig" aria-label="Contrôles directionnels">
         <div></div>
         <button id="upBtn" aria-label="Haut">▲</button>
         <div></div>
@@ -179,33 +235,18 @@
         <div></div>
       </div>
 
-      <div class="sideBtns">
-        <div class="row">
-          <button class="btn" id="pauseBtn">⏸ Pause</button>
-          <button class="btn" id="fsBtnSmall">⛶ Plein écran</button>
-        </div>
-        <div class="row">
-          <button class="btn" id="startSmall">▶ Démarrer</button>
-          <button class="btn primary" id="restartSmall">↻ Recommencer</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="hint">
-      <div>Murs = perdu • Contrôles tactiles • Sons arcade (sans fichiers)</div>
-      <div>Astuce : “Ajouter à l’écran d’accueil” = sensation app.</div>
+      <div class="hint">Murs = perdu • Contrôles XXL • Sons arcade • Message personnalisé pour Mireille</div>
     </div>
 
     <!-- Start overlay -->
     <div class="overlay" id="startOverlay">
       <div class="modal">
-        <div style="font-size:40px; line-height:1;">🐍</div>
+        <div style="font-size:42px; line-height:1;">🐍</div>
         <h2>Snake — prêt ?</h2>
-        <p>Mode <b>portrait</b> + contrôles tactiles.</p>
-        <p class="portraitWarn">⚠️ Tu es en paysage. Mets en portrait pour jouer comme sur mobile.</p>
+        <p>Contrôles grands + mode portrait.</p>
         <div class="btnRow">
-          <button class="btn" id="fsBtn">⛶ Plein écran</button>
-          <button class="btn primary" id="startBtn">▶ Démarrer</button>
+          <button class="bigBtn" id="fsBtn">⛶ Plein écran</button>
+          <button class="bigBtn primary" id="startBtn">▶ Démarrer</button>
         </div>
         <p style="margin-top:10px; font-size:12px; color:var(--muted);">
           Sur certains navigateurs (iOS), le plein écran peut être limité.
@@ -216,13 +257,14 @@
     <!-- Game Over overlay -->
     <div class="overlay" id="overOverlay">
       <div class="modal">
-        <div style="font-size:34px; line-height:1;">💀</div>
+        <div style="font-size:36px; line-height:1;">💀</div>
         <h2>Game Over</h2>
         <div class="bigScore" id="finalScore">0</div>
         <p>Score final</p>
+        <div class="encourage" id="encourageMsg"></div>
         <div class="btnRow">
-          <button class="btn primary" id="restartBtn">↻ Recommencer</button>
-          <button class="btn" id="closeOverBtn">Voir le plateau</button>
+          <button class="bigBtn primary" id="restartBtn">↻ Recommencer</button>
+          <button class="bigBtn" id="closeOverBtn">Voir le plateau</button>
         </div>
       </div>
     </div>
@@ -241,6 +283,7 @@
       const startOverlay = document.getElementById("startOverlay");
       const overOverlay = document.getElementById("overOverlay");
       const finalScoreEl = document.getElementById("finalScore");
+      const encourageMsgEl = document.getElementById("encourageMsg");
 
       const startBtn = document.getElementById("startBtn");
       const startSmall = document.getElementById("startSmall");
@@ -291,7 +334,7 @@
       const SFX = {
         click() { beep({freq:700, dur:0.05, type:"square", vol:0.05, freqEnd:500}); },
         apple() { beep({freq:1100, dur:0.07, type:"square", vol:0.08, freqEnd:1600}); },
-        turn()  { beep({freq:500, dur:0.03, type:"square", vol:0.03, freqEnd:420}); },
+        turn()  { beep({freq:520, dur:0.03, type:"square", vol:0.03, freqEnd:430}); },
         death() {
           beep({freq:420, dur:0.10, type:"sawtooth", vol:0.09, freqEnd:160});
           setTimeout(()=>beep({freq:240, dur:0.12, type:"square", vol:0.08, freqEnd:90}), 90);
@@ -301,6 +344,29 @@
       function unlockAudioFromUserGesture() {
         initAudio();
         if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      }
+
+      // ====== Encouragements for Mireille ======
+      const MIREILLE_MESSAGES = [
+        "Mireille, c’était une belle tentative ! La prochaine pomme est pour toi 🍎",
+        "Allez Mireille, on respire… et on repart ! Tu vas y arriver 💪",
+        "Mireille, tu progresses ! Chaque partie te rend plus forte 🐍",
+        "Bravo Mireille : même quand on perd, on apprend. Rejoue ! ✨",
+        "Mireille, pas grave ! Le snake a juste fait sa diva 😄 Recommence !",
+        "Mireille, joli score ! Encore une et tu bats ton record 🏆",
+        "Courage Mireille : une petite pause… puis un grand comeback 🚀",
+        "Mireille, tu gères ! La prochaine partie sera la bonne 🔥",
+        "Mireille, focus : doucement au début, ensuite tu accélères 😎",
+        "Mireille, tu es plus maligne que ces murs. Revanche ! 😁"
+      ];
+      let lastMsgIndex = -1;
+      function pickMireilleMessage() {
+        if (MIREILLE_MESSAGES.length === 1) return MIREILLE_MESSAGES[0];
+        let i;
+        do { i = Math.floor(Math.random() * MIREILLE_MESSAGES.length); }
+        while (i === lastMsgIndex);
+        lastMsgIndex = i;
+        return MIREILLE_MESSAGES[i];
       }
 
       // ---- Game config ----
@@ -319,10 +385,12 @@
       function resizeCanvasForPortrait() {
         const stage = canvas.parentElement;
         const w = stage.clientWidth;
-        const sizeCSS = Math.min(w, 520);
         const internal = GRID * 24; // 480
         canvas.width = internal;
         canvas.height = internal;
+
+        // Fit canvas inside stage height/width
+        const sizeCSS = Math.min(w, stage.clientHeight, 520);
         canvas.style.width = sizeCSS + "px";
         canvas.style.height = sizeCSS + "px";
       }
@@ -350,8 +418,8 @@
           { x: start.x-1, y: start.y },
           { x: start.x-2, y: start.y },
         ];
-        dir = { x: 1, y: 0 };
-        nextDir = { x: 1, y: 0 };
+        dir = { x: 0, y: 1 };       // start moving down visually nicer with vertical snake
+        nextDir = { x: 0, y: 1 };
         score = 0;
         tickMs = BASE_TICK_MS;
         paused = false;
@@ -367,28 +435,36 @@
         resetGameState();
         running = false;
         hideGameOver();
-        pauseBtn.textContent = "⏸ Pause";
+        pauseBtn.innerHTML = '<div class="icon">⏸</div><div class="iconLabel">Pause</div>';
         render();
         if (showStartScreen) showStart();
         else hideStart();
       }
 
+      function setPauseBtnLabel() {
+        if (paused) {
+          pauseBtn.innerHTML = '<div class="icon">▶</div><div class="iconLabel">Reprendre</div>';
+        } else {
+          pauseBtn.innerHTML = '<div class="icon">⏸</div><div class="iconLabel">Pause</div>';
+        }
+      }
+
       function startGame() {
         unlockAudioFromUserGesture();
         SFX.click();
-
         hideStart();
         hideGameOver();
         running = true;
         paused = false;
-        pauseBtn.textContent = "⏸ Pause";
+        setPauseBtnLabel();
       }
 
       function gameOver() {
         running = false;
         paused = false;
-        pauseBtn.textContent = "⏸ Pause";
+        setPauseBtnLabel();
         finalScoreEl.textContent = score;
+        encourageMsgEl.textContent = pickMireilleMessage();
         showGameOver();
         SFX.death();
       }
@@ -412,9 +488,7 @@
         if (cellEquals(newHead, apple)) {
           score += 1;
           scoreEl.textContent = score;
-
           SFX.apple();
-
           tickMs = Math.max(MIN_TICK_MS, Math.floor(tickMs * SPEED_UP_PER_APPLE));
           setSpeedHud();
           placeApple();
@@ -528,7 +602,7 @@
         SFX.click();
         if (!running) return;
         paused = !paused;
-        pauseBtn.textContent = paused ? "▶ Reprendre" : "⏸ Pause";
+        setPauseBtnLabel();
       });
 
       function doRestartImmediate() {
@@ -549,10 +623,13 @@
       // Init
       window.addEventListener("resize", resizeCanvasForPortrait);
       window.addEventListener("orientationchange", resizeCanvasForPortrait);
-      resizeCanvasForPortrait();
 
-      resetGame(true);
-      requestAnimationFrame(loop);
+      // Wait a tick so stage has correct height before sizing
+      setTimeout(() => {
+        resizeCanvasForPortrait();
+        resetGame(true);
+        requestAnimationFrame(loop);
+      }, 0);
     })();
   </script>
 </body>
