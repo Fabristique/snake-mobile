@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Snake Nokia — Mobile (Senior UI + Mireille)</title>
+  <title>Snake Nokia — Mobile (Record + Mireille)</title>
   <style>
     :root{ --bg:#0b0f14; --panel:#0f1620; --text:#e8eef6; --muted:#9fb0c3; }
     html,body{height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text);}
@@ -31,7 +31,6 @@
     .hud{display:flex; gap:10px; align-items:center; font-variant-numeric:tabular-nums; flex-wrap:wrap; justify-content:flex-end;}
     .pill{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); padding:6px 10px; border-radius:999px; white-space:nowrap;}
 
-    /* Game area: slightly shorter to leave room for big controls */
     .stage{
       flex:0 0 auto;
       display:flex;
@@ -45,7 +44,7 @@
       overflow:hidden;
       position:relative;
       min-height: 220px;
-      height: clamp(280px, 42vh, 430px); /* tuned for portrait, bigger control area */
+      height: clamp(280px, 42vh, 430px);
     }
     canvas{
       width:100%;
@@ -54,7 +53,6 @@
       image-rendering: pixelated;
     }
 
-    /* Bottom layout: centered big dpad + small icon buttons around */
     .bottom{
       display:flex;
       flex-direction:column;
@@ -122,7 +120,7 @@
       background:rgba(255,255,255,.06);
       color:var(--text);
       font-weight:900;
-      font-size:28px; /* bigger arrows */
+      font-size:28px;
       user-select:none;
       min-height:70px;
     }
@@ -137,7 +135,6 @@
       text-align:center;
     }
 
-    /* overlays */
     .overlay{
       position:absolute; inset:0;
       display:none;
@@ -160,8 +157,21 @@
     .modal h2{ margin:8px 0 8px; font-size:22px;}
     .modal p{ margin:6px 0; color:var(--muted);}
     .bigScore{ font-size:46px; font-weight:900; margin:10px 0 2px; font-variant-numeric:tabular-nums;}
+    .recordLine{
+      margin-top:10px;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.10);
+      font-variant-numeric:tabular-nums;
+      color:rgba(232,238,246,.95);
+    }
     .encourage{
-      margin-top:8px;
+      margin-top:10px;
       font-size:16px;
       color:rgba(232,238,246,.92);
       line-height:1.35;
@@ -198,6 +208,7 @@
       <div class="hud">
         <div class="pill">Score : <span id="score">0</span></div>
         <div class="pill">Vitesse : <span id="speed">1.0×</span></div>
+        <div class="pill">Record : <span id="bestHud">0</span></div>
       </div>
     </div>
 
@@ -206,7 +217,6 @@
     </div>
 
     <div class="bottom">
-      <!-- small icon actions around the controls -->
       <div class="actionsRow" aria-label="Actions">
         <button class="iconBtn" id="pauseBtn" aria-label="Pause">
           <div class="icon">⏸</div><div class="iconLabel">Pause</div>
@@ -222,7 +232,6 @@
         </button>
       </div>
 
-      <!-- BIG centered dpad -->
       <div class="dpadBig" aria-label="Contrôles directionnels">
         <div></div>
         <button id="upBtn" aria-label="Haut">▲</button>
@@ -235,10 +244,9 @@
         <div></div>
       </div>
 
-      <div class="hint">Murs = perdu • Contrôles XXL • Sons arcade • Message personnalisé pour Mireille</div>
+      <div class="hint">Murs = perdu • Contrôles XXL • Sons arcade • Record sauvegardé • Message pour Mireille</div>
     </div>
 
-    <!-- Start overlay -->
     <div class="overlay" id="startOverlay">
       <div class="modal">
         <div style="font-size:42px; line-height:1;">🐍</div>
@@ -254,13 +262,19 @@
       </div>
     </div>
 
-    <!-- Game Over overlay -->
     <div class="overlay" id="overOverlay">
       <div class="modal">
         <div style="font-size:36px; line-height:1;">💀</div>
         <h2>Game Over</h2>
         <div class="bigScore" id="finalScore">0</div>
         <p>Score final</p>
+
+        <div class="recordLine" id="recordLine">
+          🏆 Record : <b><span id="bestOver">0</span></b>
+          <span style="opacity:.8;">•</span>
+          À battre : <b><span id="toBeat">0</span></b>
+        </div>
+
         <div class="encourage" id="encourageMsg"></div>
         <div class="btnRow">
           <button class="bigBtn primary" id="restartBtn">↻ Recommencer</button>
@@ -279,11 +293,14 @@
 
       const scoreEl = document.getElementById("score");
       const speedEl = document.getElementById("speed");
+      const bestHudEl = document.getElementById("bestHud");
 
       const startOverlay = document.getElementById("startOverlay");
       const overOverlay = document.getElementById("overOverlay");
       const finalScoreEl = document.getElementById("finalScore");
       const encourageMsgEl = document.getElementById("encourageMsg");
+      const bestOverEl = document.getElementById("bestOver");
+      const toBeatEl = document.getElementById("toBeat");
 
       const startBtn = document.getElementById("startBtn");
       const startSmall = document.getElementById("startSmall");
@@ -298,6 +315,18 @@
       const downBtn = document.getElementById("downBtn");
       const leftBtn = document.getElementById("leftBtn");
       const rightBtn = document.getElementById("rightBtn");
+
+      // ====== Best score persistence ======
+      const BEST_KEY = "snake_best_score_v1";
+      function loadBest() {
+        const v = Number(localStorage.getItem(BEST_KEY));
+        return Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
+      }
+      function saveBest(v) {
+        localStorage.setItem(BEST_KEY, String(Math.max(0, Math.floor(v))));
+      }
+      let bestScore = loadBest();
+      bestHudEl.textContent = bestScore;
 
       // ====== SFX (no files) ======
       let audioCtx = null;
@@ -335,6 +364,10 @@
         click() { beep({freq:700, dur:0.05, type:"square", vol:0.05, freqEnd:500}); },
         apple() { beep({freq:1100, dur:0.07, type:"square", vol:0.08, freqEnd:1600}); },
         turn()  { beep({freq:520, dur:0.03, type:"square", vol:0.03, freqEnd:430}); },
+        best()  { // little victory jingle
+          beep({freq:880, dur:0.07, type:"square", vol:0.08, freqEnd:1320});
+          setTimeout(()=>beep({freq:1320, dur:0.09, type:"square", vol:0.08, freqEnd:1760}), 70);
+        },
         death() {
           beep({freq:420, dur:0.10, type:"sawtooth", vol:0.09, freqEnd:160});
           setTimeout(()=>beep({freq:240, dur:0.12, type:"square", vol:0.08, freqEnd:90}), 90);
@@ -389,7 +422,6 @@
         canvas.width = internal;
         canvas.height = internal;
 
-        // Fit canvas inside stage height/width
         const sizeCSS = Math.min(w, stage.clientHeight, 520);
         canvas.style.width = sizeCSS + "px";
         canvas.style.height = sizeCSS + "px";
@@ -418,7 +450,7 @@
           { x: start.x-1, y: start.y },
           { x: start.x-2, y: start.y },
         ];
-        dir = { x: 0, y: 1 };       // start moving down visually nicer with vertical snake
+        dir = { x: 0, y: 1 };
         nextDir = { x: 0, y: 1 };
         score = 0;
         tickMs = BASE_TICK_MS;
@@ -435,14 +467,14 @@
         resetGameState();
         running = false;
         hideGameOver();
-        pauseBtn.innerHTML = '<div class="icon">⏸</div><div class="iconLabel">Pause</div>';
+        setPauseBtnLabel(false);
         render();
         if (showStartScreen) showStart();
         else hideStart();
       }
 
-      function setPauseBtnLabel() {
-        if (paused) {
+      function setPauseBtnLabel(isPaused) {
+        if (isPaused) {
           pauseBtn.innerHTML = '<div class="icon">▶</div><div class="iconLabel">Reprendre</div>';
         } else {
           pauseBtn.innerHTML = '<div class="icon">⏸</div><div class="iconLabel">Pause</div>';
@@ -456,17 +488,36 @@
         hideGameOver();
         running = true;
         paused = false;
-        setPauseBtnLabel();
+        setPauseBtnLabel(false);
+      }
+
+      function updateBestIfNeeded() {
+        if (score > bestScore) {
+          bestScore = score;
+          saveBest(bestScore);
+          bestHudEl.textContent = bestScore;
+          SFX.best();
+          return true;
+        }
+        return false;
       }
 
       function gameOver() {
         running = false;
         paused = false;
-        setPauseBtnLabel();
+        setPauseBtnLabel(false);
+
+        const newRecord = updateBestIfNeeded();
+
         finalScoreEl.textContent = score;
-        encourageMsgEl.textContent = pickMireilleMessage();
+        bestOverEl.textContent = bestScore;
+        toBeatEl.textContent = bestScore + 1;
+        encourageMsgEl.textContent = newRecord
+          ? "Mireille, NOUVEAU RECORD ! Magnifique 🎉 Recommence pour le pulvériser !"
+          : pickMireilleMessage();
+
         showGameOver();
-        SFX.death();
+        if (!newRecord) SFX.death();
       }
 
       function trySetDir(nx, ny) {
@@ -527,7 +578,6 @@
       function render() {
         clear();
         drawGrid();
-
         drawCell(apple.x, apple.y, "rgba(255,90,90,.90)", "rgba(255,255,255,.15)");
 
         for (let i = snake.length - 1; i >= 0; i--) {
@@ -565,7 +615,6 @@
         requestAnimationFrame(loop);
       }
 
-      // ---- Fullscreen ----
       async function toggleFullscreen() {
         unlockAudioFromUserGesture();
         SFX.click();
@@ -580,7 +629,6 @@
         }
       }
 
-      // ---- Touch (prevent scroll while pressing) ----
       function bindPress(btn, fn){
         const start = (ev) => { ev.preventDefault(); unlockAudioFromUserGesture(); fn(); };
         btn.addEventListener("pointerdown", start, { passive:false });
@@ -590,7 +638,6 @@
       bindPress(leftBtn, () => trySetDir(-1,0));
       bindPress(rightBtn,() => trySetDir(1, 0));
 
-      // Buttons
       startBtn.addEventListener("click", startGame);
       startSmall.addEventListener("click", startGame);
 
@@ -602,7 +649,7 @@
         SFX.click();
         if (!running) return;
         paused = !paused;
-        setPauseBtnLabel();
+        setPauseBtnLabel(paused);
       });
 
       function doRestartImmediate() {
@@ -620,11 +667,9 @@
         overOverlay.style.display = "none";
       });
 
-      // Init
       window.addEventListener("resize", resizeCanvasForPortrait);
       window.addEventListener("orientationchange", resizeCanvasForPortrait);
 
-      // Wait a tick so stage has correct height before sizing
       setTimeout(() => {
         resizeCanvasForPortrait();
         resetGame(true);
